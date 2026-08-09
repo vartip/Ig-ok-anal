@@ -411,12 +411,7 @@
             const container = document.getElementById('admin-withdraw-container');
             container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading withdrawals...</p>';
 
-            let { data, error } = await _supabase.from('withdrawals').select('*').order('created_at', { ascending: false });
-            if (error || !data) {
-                const res = await _supabase.from('task_submissions').select('*').eq('platform', 'withdrawal').order('created_at', { ascending: false });
-                data = res.data;
-                error = res.error;
-            }
+            const { data, error } = await _supabase.from('withdraw_requests').select('*').order('created_at', { ascending: false });
 
             if (error || !data || data.length === 0) {
                 container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No withdraw submissions found.</p>';
@@ -425,16 +420,35 @@
 
             container.innerHTML = '';
             data.forEach(item => {
+                let statusColor = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+                if (item.status === 'approved') statusColor = 'text-neongreen bg-neongreen/10 border-neongreen/30';
+                if (item.status === 'rejected') statusColor = 'text-red-400 bg-red-400/10 border-red-400/30';
+
+                let formattedDate = item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A';
+
+                let actionButtonsHTML = '';
+                if (!item.status || item.status === 'pending') {
+                    actionButtonsHTML = `
+                        <div class="flex space-x-2 pt-1">
+                            <button onclick="updateWithdrawStatus(${item.id}, 'approved')" class="flex-1 py-1.5 bg-neongreen text-darkbg font-bold rounded-lg">Approve</button>
+                            <button onclick="updateWithdrawStatus(${item.id}, 'rejected')" class="flex-1 py-1.5 bg-red-500 text-white font-bold rounded-lg">Reject</button>
+                        </div>
+                    `;
+                }
+
                 container.innerHTML += `
                     <div class="bg-cardbg p-3.5 rounded-xl neon-border space-y-2 text-xs">
                         <div class="flex justify-between items-center border-b border-gray-800 pb-1.5">
-                            <span class="text-gray-400 font-mono">UID: ${item.user_id || item.uid}</span>
-                            <span class="px-2 py-0.5 rounded-md font-bold uppercase text-[10px] bg-neonblue/10 text-neonblue border border-neonblue/30">${item.status || 'Pending'}</span>
+                            <span class="text-gray-400 font-mono">UID: ${item.user_id}</span>
+                            <span class="px-2 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColor}">${item.status || 'pending'}</span>
                         </div>
                         <div class="space-y-1 text-gray-300">
-                            <p><b>Amount:</b> <span class="text-neongreen font-mono">$${item.amount || item.reward || '0.00'}</span></p>
-                            <p><b>Details/Wallet:</b> <span class="text-white">${item.wallet || item.account_details || item.description || 'N/A'}</span></p>
+                            <p><b>Method:</b> <span class="text-white">${item.payment_method || 'N/A'}</span></p>
+                            <p><b>Amount:</b> <span class="text-neongreen font-mono">$${item.amount || '0.00'}</span></p>
+                            <p><b>Account/Wallet:</b> <span class="text-white">${item.account_info || 'N/A'}</span></p>
+                            <p><b>Time Sent:</b> <span class="text-gray-400 font-mono">${formattedDate}</span></p>
                         </div>
+                        ${actionButtonsHTML}
                     </div>
                 `;
             });
@@ -450,13 +464,21 @@
             }
         }
 
+        async function updateWithdrawStatus(id, newStatus) {
+            const { error } = await _supabase.from('withdraw_requests').update({ status: newStatus }).eq('id', id);
+            if (error) { 
+                alert('Error updating withdrawal status: ' + error.message); 
+            } else {
+                alert('Withdrawal marked as ' + newStatus);
+                loadWithdrawSubmissions();
+            }
+        }
+
         async function loadUsersOverview() {
             const listDiv = document.getElementById('admin-users-list');
             listDiv.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading users...</p>';
 
-            // 1. Fetch registered users from users table
             const { data: usersTable, error: userError } = await _supabase.from('users').select('*');
-            // 2. Fetch submissions to calculate balances
             const { data: subsData } = await _supabase.from('task_submissions').select('*');
 
             if(userError || !usersTable) {
@@ -466,7 +488,6 @@
 
             let userMap = {};
             
-            // Populate with registered users first
             usersTable.forEach(u => {
                 userMap[u.user_id] = {
                     uid: u.user_id,
@@ -476,7 +497,6 @@
                 };
             });
 
-            // Calculate balances from approved task submissions
             if(subsData) {
                 subsData.forEach(item => {
                     if(!item.user_id) return;
