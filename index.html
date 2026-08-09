@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wwwearn_bot - Admin Panel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f1020',
+                        cardbg: '#16182e',
+                        neonblue: '#00f2fe',
+                        neongreen: '#4facfe',
+                        neonpurple: '#7f00ff'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f1020;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .neon-border { border: 1px solid rgba(0, 242, 254, 0.2); }
+        .neon-border:focus { border-color: #00f2fe; box-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0f1020; }
+        ::-webkit-scrollbar-thumb { background: #2a2d4d; border-radius: 2px; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen p-4 max-w-md mx-auto">
+
+    <!-- LOGIN SCREEN -->
+    <div id="admin-auth-screen" class="fixed inset-0 bg-darkbg z-50 flex items-center justify-center p-6">
+        <div class="bg-cardbg neon-border w-full max-w-sm rounded-3xl p-6 space-y-4 text-center shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-neonblue/20 text-neonblue flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="text-lg font-black">Admin Access Required</h2>
+            <p class="text-xs text-gray-400">Enter your secret passcode to manage tasks and user balances.</p>
+            <input type="password" id="admin-passcode-input" placeholder="Enter passcode" class="w-full bg-darkbg neon-border rounded-xl px-3 py-2.5 text-xs text-center text-white outline-none">
+            <button onclick="verifyAdminLogin()" class="w-full py-3 rounded-xl bg-gradient-to-r from-neonblue to-neongreen text-darkbg font-bold text-xs uppercase tracking-wider">
+                Login Dashboard
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN ADMIN DASHBOARD -->
+    <div id="admin-dashboard" class="flex flex-col flex-grow space-y-4 hidden pb-10">
+        <!-- HEADER -->
+        <header class="flex justify-between items-center py-3 border-b border-gray-800">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-neonblue to-neongreen flex items-center justify-center">
+                    <i class="fa-solid fa-shield-halved text-darkbg font-bold"></i>
+                </div>
+                <span class="font-bold tracking-wider text-neonblue text-sm">Admin Control Panel</span>
+            </div>
+            <button onclick="lockAdmin()" class="px-3 py-1.5 bg-red-500/20 text-red-400 font-bold text-xs rounded-xl border border-red-500/30">
+                <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+            </button>
+        </header>
+
+        <!-- STATS OVERVIEW CARDS -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-cardbg p-3.5 rounded-2xl neon-border text-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block">Total Users</span>
+                <h3 class="text-xl font-black text-neonblue mt-1" id="stat-total-users">0</h3>
+            </div>
+            <div class="bg-cardbg p-3.5 rounded-2xl neon-border text-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block">Total Submissions</span>
+                <h3 class="text-xl font-black text-neongreen mt-1" id="stat-total-subs">0</h3>
+            </div>
+            <div class="bg-cardbg p-3.5 rounded-2xl neon-border text-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block">Total Approved</span>
+                <h3 class="text-xl font-black text-emerald-400 mt-1" id="stat-total-approved">0</h3>
+            </div>
+            <div class="bg-cardbg p-3.5 rounded-2xl neon-border text-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block">Total Pending</span>
+                <h3 class="text-xl font-black text-yellow-400 mt-1" id="stat-total-pending">0</h3>
+            </div>
+            <div class="bg-cardbg p-3.5 rounded-2xl neon-border text-center col-span-2">
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block">Total Rejected</span>
+                <h3 class="text-xl font-black text-red-400 mt-1" id="stat-total-rejected">0</h3>
+            </div>
+        </div>
+
+        <!-- TABS SWITCHER -->
+        <div class="grid grid-cols-5 gap-1 bg-cardbg p-1 rounded-xl neon-border text-center">
+            <button onclick="switchAdminTab('tasks')" id="tab-btn-tasks" class="py-2 rounded-lg text-[10px] font-bold bg-neonblue text-darkbg transition leading-tight">Task Submissions</button>
+            <button onclick="switchAdminTab('withdraw')" id="tab-btn-withdraw" class="py-2 rounded-lg text-[10px] font-bold text-gray-400 transition leading-tight">Withdraw submission</button>
+            <button onclick="switchAdminTab('publish')" id="tab-btn-publish" class="py-2 rounded-lg text-[10px] font-bold text-gray-400 transition leading-tight">Add Task</button>
+            <button onclick="switchAdminTab('users')" id="tab-btn-users" class="py-2 rounded-lg text-[10px] font-bold text-gray-400 transition leading-tight">Users</button>
+            <button onclick="switchAdminTab('invites')" id="tab-btn-invites" class="py-2 rounded-lg text-[10px] font-bold text-gray-400 transition leading-tight">Invite count</button>
+        </div>
+
+        <!-- SECTION 1: TASK SUBMISSIONS -->
+        <div id="admin-section-tasks" class="space-y-4">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase text-gray-300">Task Submissions (Approve / Reject)</h3>
+                    <button onclick="loadSubmissions()" class="text-[10px] text-neonblue hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                </div>
+                <div id="admin-submissions-container" class="space-y-3">
+                    <p class="text-xs text-gray-500 text-center py-6">Loading submissions...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: WITHDRAW SUBMISSIONS -->
+        <div id="admin-section-withdraw" class="space-y-4 hidden">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase text-gray-300">Withdrawal Submissions</h3>
+                    <button onclick="loadWithdrawSubmissions()" class="text-[10px] text-neonblue hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                </div>
+                <div id="admin-withdraw-container" class="space-y-3">
+                    <p class="text-xs text-gray-500 text-center py-6">Loading withdrawals...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: ADD / MANAGE TASKS -->
+        <div id="admin-section-publish" class="space-y-4 hidden">
+            <div class="bg-cardbg p-4 rounded-2xl neon-border space-y-3">
+                <h3 class="text-xs font-bold uppercase text-gray-300 flex items-center">
+                    <i class="fa-solid fa-plus-circle text-neonblue mr-1.5"></i> Add New Task
+                </h3>
+                <div class="space-y-2.5 text-xs">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Platform Category</label>
+                        <select id="task-platform" class="w-full bg-darkbg neon-border rounded-xl px-3 py-2 text-white outline-none">
+                            <option value="Facebook task">Facebook</option>
+                            <option value="Telegram task">Telegram</option>
+                            <option value="TikTok task">TikTok</option>
+                            <option value="Instagram task">Instagram</option>
+                            <option value="Other task">Other Platform</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Task Title</label>
+                        <input type="text" id="task-title" placeholder="e.g. Join Telegram Channel" class="w-full bg-darkbg neon-border rounded-xl px-3 py-2 text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Task Description / Instructions</label>
+                        <textarea id="task-desc" rows="2" placeholder="Explain what user needs to do..." class="w-full bg-darkbg neon-border rounded-xl px-3 py-2 text-white outline-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-1">Reward Amount ($)</label>
+                        <input type="number" step="0.001" id="task-reward" value="0.042" class="w-full bg-darkbg neon-border rounded-xl px-3 py-2 text-white outline-none">
+                    </div>
+                    <button onclick="createNewPlatformTask()" class="w-full py-2.5 rounded-xl bg-neonblue text-darkbg font-bold uppercase tracking-wider hover:bg-neonblue/80 transition">
+                        Publish Task to App
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase text-gray-300">Active Tasks in App</h3>
+                    <button onclick="loadAdminTasksList()" class="text-[10px] text-neonblue hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                </div>
+                <div id="admin-tasks-list-container" class="space-y-2.5">
+                    <p class="text-xs text-gray-500 text-center py-4">Loading tasks...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 4: USERS LIST & BALANCE EDIT -->
+        <div id="admin-section-users" class="space-y-4 hidden">
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase text-gray-300">Registered Users & Balances</h3>
+                    <button onclick="loadUsersOverview()" class="text-[10px] text-neongreen hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                </div>
+                <div id="admin-users-list" class="space-y-2.5">
+                    <p class="text-xs text-gray-500 text-center py-6">Loading users...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 5: INVITE COUNT -->
+        <div id="admin-section-invites" class="space-y-4 hidden">
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase text-gray-300">User Invitation Records</h3>
+                    <button onclick="loadInviteCounts()" class="text-[10px] text-neonblue hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                </div>
+                <p class="text-[11px] text-gray-400">Shows who invited whom and total count per inviter.</p>
+                <div id="admin-invites-list" class="space-y-2.5">
+                    <p class="text-xs text-gray-500 text-center py-6">Loading invite counts...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BALANCE EDIT MODAL -->
+    <div id="edit-balance-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-cardbg neon-border w-full max-w-xs rounded-3xl p-5 space-y-4 text-center">
+            <h3 class="text-sm font-bold text-neonblue">Edit User Balance</h3>
+            <p class="text-xs text-gray-400" id="modal-edit-info">UID: -</p>
+            <input type="hidden" id="edit-modal-uid">
+            <input type="number" step="0.001" id="edit-modal-amount" placeholder="New Balance Amount ($)" class="w-full bg-darkbg neon-border rounded-xl px-3 py-2 text-xs text-center text-white outline-none">
+            <div class="flex space-x-2">
+                <button onclick="saveUserBalanceEdit()" class="flex-1 py-2 rounded-xl bg-neongreen text-darkbg font-bold text-xs">Save</button>
+                <button onclick="closeEditModal()" class="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 font-bold text-xs border border-red-500/30">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        const SUPABASE_URL = 'https://uwmzexmzsfhroxznuayo.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bXpleG16c2Zocm94em51YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNzg3MTMsImV4cCI6MjEwMTc1NDcxM30.uEWN7J-f6qLkF_nzd8NJ2GhGOTkXfdA0Oibmen20RTs';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const ADMIN_PASSCODE = "kidanemehari504_admin";
+
+        function verifyAdminLogin() {
+            const inputVal = document.getElementById('admin-passcode-input').value.trim();
+            if (inputVal === ADMIN_PASSCODE) {
+                document.getElementById('admin-auth-screen').classList.add('hidden');
+                document.getElementById('admin-dashboard').classList.remove('hidden');
+                loadAllDashboardData();
+            } else {
+                alert('Incorrect Passcode!');
+            }
+        }
+
+        function lockAdmin() {
+            document.getElementById('admin-passcode-input').value = '';
+            document.getElementById('admin-dashboard').classList.add('hidden');
+            document.getElementById('admin-auth-screen').classList.remove('hidden');
+        }
+
+        async function loadAllDashboardData() {
+            await updateHomeStats();
+            await loadSubmissions();
+            await loadWithdrawSubmissions();
+            await loadAdminTasksList();
+            await loadUsersOverview();
+            await loadInviteCounts();
+        }
+
+        function switchAdminTab(tab) {
+            const sections = ['tasks', 'withdraw', 'publish', 'users', 'invites'];
+            sections.forEach(s => {
+                document.getElementById('admin-section-' + s).classList.add('hidden');
+                const btn = document.getElementById('tab-btn-' + s);
+                btn.className = 'py-2 rounded-lg text-[10px] font-bold text-gray-400 transition leading-tight';
+            });
+
+            document.getElementById('admin-section-' + tab).classList.remove('hidden');
+            document.getElementById('tab-btn-' + tab).className = 'py-2 rounded-lg text-[10px] font-bold bg-neonblue text-darkbg transition leading-tight';
+
+            if(tab === 'tasks') loadSubmissions();
+            else if(tab === 'withdraw') loadWithdrawSubmissions();
+            else if(tab === 'publish') loadAdminTasksList();
+            else if(tab === 'users') loadUsersOverview();
+            else if(tab === 'invites') loadInviteCounts();
+        }
+
+        async function updateHomeStats() {
+            const { data: subs } = await _supabase.from('task_submissions').select('*');
+            const { data: usersData } = await _supabase.from('users').select('*');
+
+            let totalSubs = subs ? subs.length : 0;
+            let totalApproved = subs ? subs.filter(s => s.status === 'approved').length : 0;
+            let totalPending = subs ? subs.filter(s => s.status === 'pending').length : 0;
+            let totalRejected = subs ? subs.filter(s => s.status === 'rejected').length : 0;
+            let totalUsersCount = usersData ? usersData.length : 0;
+
+            document.getElementById('stat-total-subs').innerText = totalSubs;
+            document.getElementById('stat-total-approved').innerText = totalApproved;
+            document.getElementById('stat-total-pending').innerText = totalPending;
+            document.getElementById('stat-total-rejected').innerText = totalRejected;
+            document.getElementById('stat-total-users').innerText = totalUsersCount;
+        }
+
+        async function createNewPlatformTask() {
+            const platform = document.getElementById('task-platform').value;
+            const title = document.getElementById('task-title').value.trim();
+            const description = document.getElementById('task-desc').value.trim();
+            const reward = parseFloat(document.getElementById('task-reward').value);
+
+            if (!title || !description || isNaN(reward)) {
+                alert('Please fill out all task details!');
+                return;
+            }
+
+            const { error } = await _supabase.from('platform_tasks').insert([{
+                platform: platform,
+                title: title,
+                description: description,
+                reward: reward
+            }]);
+
+            if (error) {
+                alert('Error creating task: ' + error.message);
+            } else {
+                alert('Task successfully published to app!');
+                document.getElementById('task-title').value = '';
+                document.getElementById('task-desc').value = '';
+                loadAdminTasksList();
+            }
+        }
+
+        async function loadAdminTasksList() {
+            const container = document.getElementById('admin-tasks-list-container');
+            container.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Loading tasks...</p>';
+
+            const { data, error } = await _supabase.from('platform_tasks').select('*').order('id', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">No active tasks created yet.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(task => {
+                container.innerHTML += `
+                    <div class="bg-cardbg p-3.5 rounded-xl neon-border flex justify-between items-center text-xs">
+                        <div class="space-y-1">
+                            <span class="text-[10px] bg-neonblue/10 text-neonblue px-2 py-0.5 rounded-md font-semibold">${task.platform}</span>
+                            <h4 class="font-bold text-white text-sm">${task.title}</h4>
+                            <p class="text-[11px] text-gray-400">${task.description}</p>
+                            <span class="font-bold text-neongreen block">Reward: $${task.reward}</span>
+                        </div>
+                        <button onclick="deletePlatformTask(${task.id})" class="px-3 py-2 bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white font-bold rounded-xl text-xs transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        async function deletePlatformTask(taskId) {
+            if(!confirm('Are you sure you want to delete this task?')) return;
+
+            const { error } = await _supabase.from('platform_tasks').delete().eq('id', taskId);
+            if(error) {
+                alert('Error deleting task');
+            } else {
+                alert('Task deleted successfully!');
+                loadAdminTasksList();
+            }
+        }
+
+        async function loadSubmissions() {
+            const container = document.getElementById('admin-submissions-container');
+            container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading...</p>';
+
+            const { data, error } = await _supabase.from('task_submissions').select('*').order('created_at', { ascending: false });
+
+            updateHomeStats();
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No submissions found.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(sub => {
+                let statusColor = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+                if (sub.status === 'approved') statusColor = 'text-neongreen bg-neongreen/10 border-neongreen/30';
+                if (sub.status === 'rejected') statusColor = 'text-red-400 bg-red-400/10 border-red-400/30';
+
+                let formattedDate = sub.created_at ? new Date(sub.created_at).toLocaleString() : 'N/A';
+
+                let actionButtonsHTML = '';
+                if (sub.status === 'pending') {
+                    actionButtonsHTML = `
+                        <div class="flex space-x-2 pt-1">
+                            <button onclick="updateStatus(${sub.id}, 'approved')" class="flex-1 py-1.5 bg-neongreen text-darkbg font-bold rounded-lg">Approve</button>
+                            <button onclick="updateStatus(${sub.id}, 'rejected')" class="flex-1 py-1.5 bg-red-500 text-white font-bold rounded-lg">Reject</button>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML += `
+                    <div class="bg-cardbg p-3.5 rounded-xl neon-border space-y-2 text-xs">
+                        <div class="flex justify-between items-center border-b border-gray-800 pb-1.5">
+                            <span class="text-gray-400 font-mono">UID: ${sub.user_id}</span>
+                            <span class="px-2 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColor}">${sub.status}</span>
+                        </div>
+                        <div class="space-y-1 text-gray-300">
+                            <p><b>Full Name:</b> <span class="text-white">${sub.full_name || 'N/A'}</span></p>
+                            <p><b>Username:</b> <span class="text-neonblue font-mono">${sub.username_submitted || 'N/A'}</span></p>
+                            <p><b>Password:</b> <span class="text-neongreen font-mono bg-darkbg px-1.5 py-0.5 rounded">${sub.password || 'N/A'}</span></p>
+                            <p><b>2FA Key/Code:</b> <span class="font-mono text-white bg-darkbg px-1.5 py-0.5 rounded">${sub.two_fa_key || 'N/A'}</span></p>
+                            <p><b>Time Sent:</b> <span class="text-gray-400 font-mono">${formattedDate}</span></p>
+                        </div>
+                        ${actionButtonsHTML}
+                    </div>
+                `;
+            });
+        }
+
+        async function loadWithdrawSubmissions() {
+            const container = document.getElementById('admin-withdraw-container');
+            container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading withdrawals...</p>';
+
+            let { data, error } = await _supabase.from('withdrawals').select('*').order('created_at', { ascending: false });
+            if (error || !data) {
+                const res = await _supabase.from('task_submissions').select('*').eq('platform', 'withdrawal').order('created_at', { ascending: false });
+                data = res.data;
+                error = res.error;
+            }
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No withdraw submissions found.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(item => {
+                container.innerHTML += `
+                    <div class="bg-cardbg p-3.5 rounded-xl neon-border space-y-2 text-xs">
+                        <div class="flex justify-between items-center border-b border-gray-800 pb-1.5">
+                            <span class="text-gray-400 font-mono">UID: ${item.user_id || item.uid}</span>
+                            <span class="px-2 py-0.5 rounded-md font-bold uppercase text-[10px] bg-neonblue/10 text-neonblue border border-neonblue/30">${item.status || 'Pending'}</span>
+                        </div>
+                        <div class="space-y-1 text-gray-300">
+                            <p><b>Amount:</b> <span class="text-neongreen font-mono">$${item.amount || item.reward || '0.00'}</span></p>
+                            <p><b>Details/Wallet:</b> <span class="text-white">${item.wallet || item.account_details || item.description || 'N/A'}</span></p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function updateStatus(id, newStatus) {
+            const { error } = await _supabase.from('task_submissions').update({ status: newStatus }).eq('id', id);
+            if (error) { alert('Error updating status'); } 
+            else {
+                alert('Marked as ' + newStatus);
+                loadSubmissions();
+                loadUsersOverview();
+            }
+        }
+
+        async function loadUsersOverview() {
+            const listDiv = document.getElementById('admin-users-list');
+            listDiv.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading users...</p>';
+
+            // 1. Fetch registered users from users table
+            const { data: usersTable, error: userError } = await _supabase.from('users').select('*');
+            // 2. Fetch submissions to calculate balances
+            const { data: subsData } = await _supabase.from('task_submissions').select('*');
+
+            if(userError || !usersTable) {
+                listDiv.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No users found or check users table.</p>';
+                return;
+            }
+
+            let userMap = {};
+            
+            // Populate with registered users first
+            usersTable.forEach(u => {
+                userMap[u.user_id] = {
+                    uid: u.user_id,
+                    nickname: u.full_name || 'Telegram User',
+                    username: u.username || 'No Username',
+                    balance: 0
+                };
+            });
+
+            // Calculate balances from approved task submissions
+            if(subsData) {
+                subsData.forEach(item => {
+                    if(!item.user_id) return;
+                    if(!userMap[item.user_id]) {
+                        userMap[item.user_id] = {
+                            uid: item.user_id,
+                            nickname: item.full_name || 'User ' + item.user_id,
+                            username: item.username_submitted ? '@' + item.username_submitted.replace('@','') : 'No Username',
+                            balance: 0
+                        };
+                    }
+                    if(item.status === 'approved') {
+                        userMap[item.user_id].balance += (parseFloat(item.reward) || 0.042);
+                    }
+                });
+            }
+
+            const usersArr = Object.values(userMap);
+            listDiv.innerHTML = '';
+            
+            if(usersArr.length === 0) {
+                listDiv.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No active users yet.</p>';
+                return;
+            }
+
+            usersArr.forEach(u => {
+                listDiv.innerHTML += `
+                    <div class="bg-cardbg p-3.5 rounded-xl neon-border flex justify-between items-center text-xs">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white text-sm">${u.nickname}</span>
+                                <span class="text-neonblue text-[11px]">${u.username}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-400 font-mono">ID: ${u.uid}</div>
+                            <div class="font-bold text-neongreen text-xs">Balance: $${u.balance.toFixed(3)}</div>
+                        </div>
+                        <button onclick="openEditModal('${u.uid}', ${u.balance})" class="px-3 py-2 bg-neonpurple/20 text-neonpurple border border-neonpurple/30 hover:bg-neonpurple hover:text-white font-bold rounded-xl text-xs transition flex items-center space-x-1">
+                            <i class="fa-solid fa-pen"></i>
+                            <span>Edit</span>
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        async function loadInviteCounts() {
+            const container = document.getElementById('admin-invites-list');
+            container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading invites...</p>';
+
+            let { data, error } = await _supabase.from('invites').select('*');
+            if (error || !data) {
+                const res = await _supabase.from('referrals').select('*');
+                data = res.data;
+                error = res.error;
+            }
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No invite records found in database.</p>';
+                return;
+            }
+
+            let inviteMap = {};
+            data.forEach(inv => {
+                let inviterId = inv.inviter_id || inv.referrer_id || 'Unknown';
+                let invitedId = inv.invited_id || inv.referred_id || inv.user_id || 'Unknown';
+                
+                if (!inviteMap[inviterId]) {
+                    inviteMap[inviterId] = { inviter: inviterId, invitedList: [] };
+                }
+                inviteMap[inviterId].invitedList.push(invitedId);
+            });
+
+            container.innerHTML = '';
+            Object.values(inviteMap).forEach(item => {
+                container.innerHTML += `
+                    <div class="bg-cardbg p-3.5 rounded-xl neon-border space-y-2 text-xs">
+                        <div class="flex justify-between items-center border-b border-gray-800 pb-1.5">
+                            <span class="text-neonblue font-mono font-bold">Inviter UID: ${item.inviter}</span>
+                            <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-neongreen/10 text-neongreen border border-neongreen/30">Total Invited: ${item.invitedList.length}</span>
+                        </div>
+                        <div class="text-gray-300 space-y-1">
+                            <p class="text-[10px] text-gray-400">Invited User UIDs:</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${item.invitedList.map(id => `<span class="bg-darkbg px-2 py-0.5 rounded text-white font-mono text-[10px] border border-gray-800">${id}</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openEditModal(uid, currentBalance) {
+            document.getElementById('edit-modal-uid').value = uid;
+            document.getElementById('modal-edit-info').innerText = 'UID: ' + uid;
+            document.getElementById('edit-modal-amount').value = currentBalance.toFixed(3);
+            document.getElementById('edit-balance-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-balance-modal').classList.add('hidden');
+        }
+
+        async function saveUserBalanceEdit() {
+            const uid = document.getElementById('edit-modal-uid').value;
+            const newBalance = parseFloat(document.getElementById('edit-modal-amount').value);
+
+            if (isNaN(newBalance)) {
+                alert('Please enter a valid amount!');
+                return;
+            }
+
+            const { error } = await _supabase.from('task_submissions').insert([{
+                user_id: uid,
+                full_name: 'Admin Adjusted',
+                username_submitted: 'admin_edit',
+                two_fa_key: 'Balance set to $' + newBalance,
+                status: 'approved',
+                reward: newBalance
+            }]);
+
+            if (error) {
+                alert('Error updating balance: ' + error.message);
+            } else {
+                alert('User balance successfully updated!');
+                closeEditModal();
+                loadUsersOverview();
+            }
+        }
+    </script>
+</body>
+</html>
