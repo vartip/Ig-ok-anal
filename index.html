@@ -219,8 +219,9 @@
 
     <!-- SCRIPT -->
     <script>
-        const SUPABASE_URL = 'https://uwmzexmzsfhroxznuayo.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3bXpleG16c2Zocm94em51YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNzg3MTMsImV4cCI6MjEwMTc1NDcxM30.uEWN7J-f6qLkF_nzd8NJ2GhGOTkXfdA0Oibmen20RTs';
+        // MegaCoin Supabase Configuration & Credentials (Updated)
+        const SUPABASE_URL = 'https://krrpkycdxtxmjvrcpbyu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtycnBreWNkeHR4bWp2cmNwYnl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMzg1NjksImV4cCI6MjA2NzcxNDU2OX0.r6i3z4-7D6yF_Vnz8N-GhGOTkXfdA0Oibmen20RTs';
         
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -489,8 +490,8 @@
             let userMap = {};
             
             usersTable.forEach(u => {
-                userMap[u.user_id] = {
-                    uid: u.user_id,
+                userMap[u.id] = {
+                    uid: u.id,
                     nickname: u.full_name || 'Telegram User',
                     username: u.username || 'No Username',
                     balance: 0
@@ -546,12 +547,7 @@
             const container = document.getElementById('admin-invites-list');
             container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Loading invites...</p>';
 
-            let { data, error } = await _supabase.from('invites').select('*');
-            if (error || !data) {
-                const res = await _supabase.from('referrals').select('*');
-                data = res.data;
-                error = res.error;
-            }
+            let { data, error } = await _supabase.from('referrals').select('*');
 
             if (error || !data || data.length === 0) {
                 container.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">No invite records found in database.</p>';
@@ -560,8 +556,8 @@
 
             let inviteMap = {};
             data.forEach(inv => {
-                let inviterId = inv.inviter_id || inv.referrer_id || 'Unknown';
-                let invitedId = inv.invited_id || inv.referred_id || inv.user_id || 'Unknown';
+                let inviterId = inv.referrer_id || 'Unknown';
+                let invitedId = inv.referred_id || 'Unknown';
                 
                 if (!inviteMap[inviterId]) {
                     inviteMap[inviterId] = { inviter: inviterId, invitedList: [] };
